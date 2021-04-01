@@ -1,0 +1,672 @@
+create sequence seq_users_list
+increment by 1
+start with 1
+maxvalue 9999999999
+cycle 
+cache 20;
+
+create or replace procedure gen_users_info
+as
+  x number;
+  v_uname users_list.user_name%type;
+  v_user_tid users_list.utype_id%type;
+  v_pwd users_list.pwd%type;
+  v_email users_list.email%type;
+  v_dob users_list.dob%type;
+  v_regdate users_list.reg_date%type;
+  v_credit users_list.credit%type;
+begin
+  x:=0;
+  while x<10000000 loop
+    x:=x+1;
+    select dbms_random.string ('a', 10) into v_uname from dual;
+    select floor(trunc(dbms_random.value (1,10))/3)
+     into v_user_tid from dual;
+    if v_user_tid in(1,2) then
+      v_user_tid:=1;
+    elsif v_user_tid=0 then
+      v_user_tid:=2;
+    end if;
+    select dbms_random.string ('a', 20) into v_pwd from dual;
+    select dbms_random.string ('a', 10)||
+     '@'||dbms_random.string ('a', 4)||
+      '.com' into v_email from dual;
+    SELECT to_date(TRUNC(DBMS_RANDOM.VALUE(
+       to_number(to_char(to_date('19700101','yyyymmdd'),'J')),
+       to_number(to_char(sysdate+1,'J')))),'J')+
+       DBMS_RANDOM.VALUE(1,3600)/3600
+    INTO v_dob
+    FROM dual;
+    SELECT to_date(TRUNC(DBMS_RANDOM.VALUE(
+       to_number(to_char(to_date('20080101','yyyymmdd'),'J')),
+       to_number(to_char(sysdate+1,'J')))),'J')+
+       DBMS_RANDOM.VALUE(1,3600)/3600
+    INTO v_regdate
+    FROM dual;
+    select trunc (dbms_random.value (0, 20))
+     into v_credit from dual;
+    insert into users_list(user_seq_id,user_name,utype_id,pwd,email,dob,reg_date,credit)
+     values(seq_users_list.nextval,v_uname,v_user_tid,v_pwd,v_email,v_dob,v_regdate,v_credit);
+    if mod(x,5000)=0 then
+      commit;
+    end if;
+  end loop;
+end;
+
+create sequence seq_shops
+increment by 1
+start with 1
+maxvalue 9999999999
+cycle 
+cache 20;
+
+create or replace procedure gen_shops_info
+as
+  x number;
+  maxnum number;
+  flag number;
+  v_sname shops.shop_name%type;
+  v_slevel shops.shop_level%type;
+begin
+  x:=0;
+  select count(*) into maxnum from users_list where utype_id=3;
+  while x<5000000 loop
+    flag:=10;
+    x:=x+1;
+    select dbms_random.string ('a', 10) into v_sname from dual;
+    select trunc (dbms_random.value (0, 30))
+     into v_slevel from dual;
+    insert into shops(shop_id,shop_name,shop_level)
+     values(seq_shops.nextval,v_sname,v_slevel);
+    if mod(x,5000)=0 then
+      commit;
+    end if;
+  end loop;
+end;
+
+create or replace procedure gen_fololow_list_info
+as
+  x number;
+  flag number;
+  flag1 number;
+  flag2 number;
+  v_uid shop_follow_list.user_seq_id%type;
+  v_sid shop_follow_list.shop_id%type;
+  v_fdate shop_follow_list.follow_date%type;
+  cursor c_uid is select * from users_list
+   ORDER BY dbms_random.value;
+begin
+  for r_uid in c_uid loop
+    x:=0;
+    select trunc(dbms_random.value (1,100))
+     into flag2 from dual;
+    for x in 1..flag2 loop
+      flag:=1;
+      v_uid:=r_uid.user_seq_id;
+      while flag>0 loop
+       select shop_id into v_sid
+         from shops sample(0.001)
+         where rownum=1;
+       select count(*) into flag from shop_follow_list
+        where user_seq_id=v_uid and shop_id=v_sid;
+      end loop;
+      SELECT to_date(TRUNC(DBMS_RANDOM.VALUE(
+       to_number(to_char(to_date('20080101','yyyymmdd'),'J')),
+       to_number(to_char(sysdate+1,'J')))),'J')+
+       DBMS_RANDOM.VALUE(1,3600)/3600
+      INTO v_fdate
+      FROM dual;
+      insert into shop_follow_list(user_seq_id,shop_id,follow_date)
+       values(v_uid,v_sid,v_fdate);
+    end loop;
+    commit;
+  end loop;
+end;
+
+create sequence seq_mgr
+increment by 1
+start with 1
+maxvalue 1111685
+cycle 
+cache 20;
+
+create or replace procedure gen_shop_mgr
+as
+  x number;
+  flag number;
+  v_eid shop_emps.emp_id%type;
+  v_sid shop_emps.shop_id%type;
+  v_ename shop_emps.emp_name%type;
+  v_mgr_id shop_emps.manager_id%type;
+  v_edate shop_emps.entry_time%type;
+  v_salary shop_emps.salary%type;
+  cursor c_mgr is  SELECT * FROM users_list where utype_id=3
+   ORDER BY dbms_random.value;
+begin
+  x:=0;
+  for r_mgr in c_mgr loop
+    flag:=1;
+    v_eid:=r_mgr.user_seq_id;
+    select dbms_random.string ('a', 10) into v_ename from dual;
+    SELECT to_date(TRUNC(DBMS_RANDOM.VALUE(
+       to_number(to_char(to_date('20080101','yyyymmdd'),'J')),
+       to_number(to_char(sysdate+1,'J')))),'J')+
+       DBMS_RANDOM.VALUE(1,3600)/3600
+    INTO v_edate
+    FROM dual;
+    select trunc (dbms_random.value (10000, 20000))
+     into v_salary from dual;
+    insert into shop_emps(emp_id,shop_id,emp_name,manager_id,salary,entry_time)
+       values(v_eid,seq_mgr.nextval,v_ename,null,v_salary,v_edate);
+    if mod(x,5000)=0 then
+      commit;
+    end if;
+  end loop;
+  commit;
+end;
+
+create or replace procedure gen_shop_emp
+as
+  x number;
+  flag number;
+  v_eid shop_emps.emp_id%type;
+  v_sid shop_emps.shop_id%type;
+  v_ename shop_emps.emp_name%type;
+  v_mgr_id shop_emps.manager_id%type;
+  v_edate shop_emps.entry_time%type;
+  v_salary shop_emps.salary%type;
+  cursor c_emps is select * from users_list
+   where utype_id=2 ORDER BY dbms_random.value;
+  cursor c_mgr is  SELECT * FROM users_list where utype_id=3
+   ORDER BY dbms_random.value;
+begin
+  x:=0;
+  for r_mgr in c_mgr loop
+    flag:=1;
+    v_eid:=r_mgr.user_seq_id;
+    while flag>0 loop
+      select trunc (dbms_random.value (1, 1111686))
+       into v_sid from dual;
+      select count(*) into flag from shop_emps
+        where shop_id=v_sid and emp_id=v_eid;
+    end loop;
+    select dbms_random.string ('a', 10) into v_ename from dual;
+    SELECT to_date(TRUNC(DBMS_RANDOM.VALUE(
+       to_number(to_char(to_date('20080101','yyyymmdd'),'J')),
+       to_number(to_char(sysdate+1,'J')))),'J')+
+       DBMS_RANDOM.VALUE(1,3600)/3600
+    INTO v_edate
+    FROM dual;
+    select trunc (dbms_random.value (10000, 20000))
+     into v_salary from dual;
+    insert into shop_emps(emp_id,shop_id,emp_name,manager_id,salary,entry_time)
+       values(v_eid,v_sid,v_ename,null,v_salary,v_edate);
+    if mod(x,5000)=0 then
+      commit;
+    end if;
+  end loop;
+  for r_emps in c_emps loop
+    v_eid:=r_emps.user_seq_id;
+    select emp_id into v_mgr_id
+      from shop_emps sample(0.01)
+      where rownum=1;
+    select shop_id into v_sid from shop_emps where emp_id=v_mgr_id;
+    select dbms_random.string ('a', 10) into v_ename from dual;
+    SELECT to_date(TRUNC(DBMS_RANDOM.VALUE(
+       to_number(to_char(to_date('20080101','yyyymmdd'),'J')),
+       to_number(to_char(sysdate+1,'J')))),'J')+
+       DBMS_RANDOM.VALUE(1,3600)/3600
+    INTO v_edate
+    FROM dual;
+    select trunc (dbms_random.value (1000, 3000))
+     into v_salary from dual;
+    insert into shop_emps(emp_id,shop_id,emp_name,manager_id,salary,entry_time)
+       values(v_eid,v_sid,v_ename,v_mgr_id,v_salary,v_edate);
+    if mod(x,5000)=0 then
+      commit;
+    end if;
+  end loop;
+  commit;
+end;
+
+create sequence seq_ptypes
+increment by 1
+start with 1
+maxvalue 9999999999
+cycle 
+cache 20;
+
+create or replace procedure gen_ptypes_info
+as
+  x number;
+  v_parent_id product_types.parent_id%type;
+  v_ptype_name product_types.ptype_name%type;
+begin
+  x:=0;
+  while x<10000 loop
+    x:=x+1;
+    v_parent_id:=null;
+    select dbms_random.string ('a', 10) into v_ptype_name from dual;
+    if x>=20 then
+      SELECT ptype_id INTO v_parent_id FROM 
+      product_types sample(10)
+      WHERE rownum = 1;
+    end if;
+    insert into product_types(ptype_id,parent_id,ptype_name)
+    values(seq_ptypes.nextval,v_parent_id,v_ptype_name);
+    if mod(x,500)=0 then
+      commit;
+    end if;
+  end loop;
+end;
+
+create sequence seq_products
+increment by 1
+start with 1
+maxvalue 9999999999
+cycle 
+cache 20;
+
+create or replace procedure gen_products_info
+as
+  x number;
+  v_pname products.product_name%type;
+  v_product_tid products.ptype_id%type;
+  v_sid products.shop_id%type;
+  v_product_num products.product_number%type;
+  v_price products.price%type;
+  v_des products.pdescription%type;
+  v_sold_num products.sold_out%type;
+  v_hot products.hot%type;
+begin
+  x:=0;
+  while x<15000000 loop
+    x:=x+1;
+    select dbms_random.string ('a', 10) into v_pname from dual;
+    select trunc(dbms_random.value (10001,20001))
+     into v_product_tid from dual;
+    select trunc(dbms_random.value (1,1111686))
+     into v_sid from dual;
+    select trunc(dbms_random.value (1,100000))
+     into v_product_num from dual;
+    select trunc (dbms_random.value (0,100000),2)
+     into v_price from dual;
+    select dbms_random.string ('a', 20) into v_pname from dual;
+    select dbms_random.string ('a', 120) into v_des from dual;
+    select trunc(dbms_random.value (1,1000000))
+     into v_sold_num from dual;
+    select trunc(dbms_random.value (1,1000000))
+     into v_hot from dual;
+    insert into products(product_id,product_name,ptype_id,
+     shop_id,product_number,price,pdescription,sold_out,hot)
+     values(seq_products.nextval,v_pname,v_product_tid,v_sid,v_product_num,
+     v_price,v_des,v_sold_num,v_hot);
+    if mod(x,5000)=0 then
+      commit;
+    end if;
+  end loop;
+  commit;
+end;
+
+create sequence seq_comments
+increment by 1
+start with 1
+maxvalue 9999999999
+cycle 
+cache 20;
+
+create or replace procedure gen_comments_info
+as
+  x number;
+  v_pid comments.product_id%type;
+  v_fuid comments.from_user_seq_id%type;
+  v_grade comments.grade%type;
+  v_dscore comments.description_score%type;
+  v_sscore comments.service_score%type;
+  v_lscore comments.logistics_score%type;
+  v_content comments.comment_content%type;
+begin
+  x:=0;
+  while x<10000000 loop
+    x:=x+1;
+    select trunc (dbms_random.value (1,15000000))
+     into v_pid from dual;
+    select trunc (dbms_random.value (1,10000000))
+     into v_fuid from dual;
+    select trunc (dbms_random.value (1,4))
+     into v_grade from dual;
+    select trunc (dbms_random.value (1,6))
+     into v_dscore from dual;
+    select trunc (dbms_random.value (1,6))
+     into v_sscore from dual;
+    select trunc (dbms_random.value (1,6))
+     into v_lscore from dual;
+    select dbms_random.string ('a', 30) into v_content from dual;
+    insert into comments(comment_id,product_id,from_user_seq_id,grade,
+    description_score,service_score,logistics_score,comment_content)
+    values(seq_comments.nextval,v_pid,v_fuid,v_grade,v_dscore,v_sscore,
+    v_lscore,v_content);
+    if mod(x,5000)=0 then
+      commit;
+    end if;
+  end loop;
+  commit;
+end;
+
+create sequence seq_comment_rep
+increment by 1
+start with 1
+maxvalue 9999999999
+cycle 
+cache 20;
+
+create or replace procedure gen_comment_rep_info
+as
+  x number;
+  v_tcid comment_reply.to_comment_id%type;
+  v_fuid comment_reply.from_user_seq_id%type;
+  v_tuid comment_reply.to_user_seq_id%type;
+  v_ctype comment_reply.content_type%type;
+  v_content comment_reply.cr_content%type;
+begin
+  x:=0;
+  while x<1000000 loop
+    x:=x+1;
+    select trunc (dbms_random.value (1,10000000))
+     into v_tcid from dual;
+    select trunc (dbms_random.value (1,10000000))
+     into v_fuid from dual;
+    select trunc (dbms_random.value (1,10000000))
+     into v_tuid from dual;
+    select trunc (dbms_random.value (1,3))
+     into v_ctype from dual;
+    select dbms_random.string ('a', 30) into v_content from dual;
+    insert into comment_reply(reply_id,to_comment_id,from_user_seq_id,to_user_seq_id,
+    content_type,cr_content)
+     values(seq_comment_rep.nextval,v_tcid,v_fuid,v_tuid,v_ctype,v_content);
+    if mod(x,5000)=0 then
+      commit;
+    end if;
+  end loop;
+end;
+
+create or replace procedure gen_respects_info
+as
+  x number;
+  flag number;
+  flag2 number;
+  v_uid respects.from_user_seq_id%type;
+  v_cid respects.to_comment_id%type;
+  cursor c_uid is select * from users_list
+   ORDER BY dbms_random.value;
+begin
+  for r_uid in c_uid loop
+    x:=0;
+    select trunc(dbms_random.value (1,100))
+     into flag2 from dual;
+    for x in 1..flag2 loop
+      flag:=1;
+      v_uid:=r_uid.user_seq_id;
+      while flag>0 loop
+       select comment_id into v_cid
+         from comments sample(0.001)
+         where rownum=1;
+       select count(*) into flag from respects
+        where from_user_seq_id=v_uid and to_comment_id=v_cid;
+      end loop;
+      insert into respects(from_user_seq_id,to_comment_id,resp_stat)
+       values(v_uid,v_cid,1);
+    end loop;
+    commit;
+  end loop;
+end;
+
+create or replace procedure gen_cart_info
+as
+  x number;
+  flag number;
+  flag2 number;
+  v_uid shopping_cart.user_seq_id%type;
+  v_pid shopping_cart.product_id%type;
+  v_num shopping_cart.product_num%type;
+  cursor c_uid is select * from users_list
+   ORDER BY dbms_random.value;
+
+begin
+  for r_uid in c_uid loop
+    x:=0;
+    select trunc(dbms_random.value (0,20))
+     into flag2 from dual;
+    for x in 1..flag2 loop
+      flag:=1;
+      v_uid:=r_uid.user_seq_id;
+      select trunc (dbms_random.value (1,15000001))
+       into v_pid from dual;
+      select count(*) into flag from shopping_cart
+       where user_seq_id=v_uid and product_id=v_pid;
+      if flag>0 then
+        exit;
+      end if;
+      select trunc(dbms_random.value (1,100))
+       into v_num from dual;
+      insert into shopping_cart(user_seq_id,product_id,product_num)
+      values(v_uid,v_pid,v_num);
+    end loop;
+    commit;
+  end loop;
+end;
+
+create or replace procedure gen_pfav_info
+as
+  x number;
+  flag number;
+  flag2 number;
+  v_uid product_fav.user_seq_id%type;
+  v_pid product_fav.product_id%type;
+  v_fdate product_fav.fav_time%type;
+  cursor c_uid is select * from users_list
+   ORDER BY dbms_random.value;
+begin
+  for r_uid in c_uid loop
+    x:=0;
+    select trunc(dbms_random.value (1,100))
+     into flag2 from dual;
+    for x in 1..flag2 loop
+      flag:=1;
+      v_uid:=r_uid.user_seq_id;
+      while flag>0 loop
+       select product_id into v_pid
+         from  products sample(0.001)
+         where rownum=1;
+       select count(*) into flag from product_fav
+        where user_seq_id=v_uid and product_id=v_pid;
+      end loop;
+      SELECT to_date(TRUNC(DBMS_RANDOM.VALUE(
+       to_number(to_char(to_date('20080101','yyyymmdd'),'J')),
+       to_number(to_char(sysdate+1,'J')))),'J')+
+       DBMS_RANDOM.VALUE(1,3600)/3600
+      INTO v_fdate
+      FROM dual;
+      insert into product_fav(user_seq_id,product_id,fav_time)
+      values(v_uid,v_pid,v_fdate);
+    end loop;
+    commit;
+  end loop;
+end;
+
+
+create sequence seq_addr
+increment by 1
+start with 1
+maxvalue 9999999999
+cycle 
+cache 20;
+
+create or replace procedure gen_addr_info
+as
+  x number;
+  v_uid address.user_seq_id%type;
+  v_cname address.contact_name%type;
+  v_ctrid address.country_id%type;
+  v_province address.state_province%type;
+  v_city address.city%type;
+  v_street address.street_addr%type;
+  v_poscode address.postal_code%type;
+  v_phonenum address.phonenum%type;
+begin
+  x:=0;
+  while x<10000000 loop
+    x:=x+1;
+    select trunc(dbms_random.value (1,10000001))
+     into v_uid from dual;
+    select dbms_random.string ('a', 10) into v_cname from dual;
+    select country_id into v_ctrid
+     from (SELECT * FROM countries ORDER BY dbms_random.random) 
+     where rownum=1;
+    select dbms_random.string ('a', 10) into v_province from dual;
+    select dbms_random.string ('a', 10) into v_city from dual;
+    select dbms_random.string ('a', 50) into v_street from dual;
+    select trunc(dbms_random.value (100000,1000000))
+     into v_poscode from dual;
+    select trunc(dbms_random.value (10000000000,20000000000))
+     into v_phonenum from dual;
+    insert into address(address_id,user_seq_id,contact_name,country_id,
+     state_province,city,street_addr,postal_code,phonenum)
+     values(seq_addr.nextval,v_uid,v_cname,v_ctrid,v_province,v_city,
+      v_street,v_poscode,v_phonenum);
+    if mod(x,5000)=0 then
+      commit;
+    end if;
+  end loop;
+end;
+
+create sequence seq_orders
+increment by 1
+start with 1
+maxvalue 9999999999
+cycle 
+cache 20;
+
+
+
+create or replace procedure gen_orders_info
+as
+  x number;
+  v_sdate orders.submit_date%type;
+  v_uid orders.customer_id%type;
+  v_purchase orders.purchase%type;
+  v_ostat orders.order_stat%type;
+  v_modi orders.last_modified%type;
+  
+begin
+  x:=0;
+  while x<10000000 loop
+    x:=x+1;
+    SELECT to_date(TRUNC(DBMS_RANDOM.VALUE(
+       to_number(to_char(to_date('20080101','yyyymmdd'),'J')),
+       to_number(to_char(sysdate+1,'J')))),'J')+
+       DBMS_RANDOM.VALUE(1,3600)/3600
+      INTO v_sdate
+      FROM dual;
+    select trunc(dbms_random.value (1,10000001))
+     into v_uid from dual;
+    select ostat_id into v_ostat
+     from (SELECT * FROM order_stats ORDER BY dbms_random.random) 
+     where rownum=1;
+    if v_ostat=1 then
+      v_purchase:=0;
+    else
+      select purchase_id into v_purchase
+       from (SELECT * FROM purchase ORDER BY dbms_random.random) 
+       where rownum=1; 
+    end if;
+    SELECT to_date(TRUNC(DBMS_RANDOM.VALUE(
+       to_number(to_char(v_sdate,'J')),
+       to_number(to_char(v_sdate+7,'J')))),'J')+
+       DBMS_RANDOM.VALUE(1,3600)/3600
+      INTO v_modi
+      FROM dual;
+    insert into orders(order_id,submit_date,customer_id,
+     purchase,order_stat,last_modified)
+     values(seq_orders.nextval,v_sdate,
+      v_uid,v_purchase,v_ostat,v_modi);
+    if mod(x,5000)=0 then
+      commit;
+    end if;
+  end loop;
+end;
+
+create sequence seq_logi
+increment by 1
+start with 1
+maxvalue 9999999999
+cycle 
+cache 20;
+
+create or replace procedure gen_logi_info
+as
+  x number;
+  v_uid orders.customer_id%type;
+  v_oid logistics.order_id%type;
+  v_aid logistics.target%type;
+  v_lname logistics.logi_name%type;
+  v_lstat logistics.now_location%type;
+  v_postman logistics.postman%type;
+  v_phone logistics.phone%type;
+  cursor c_ord is select address.address_id,orders.order_id
+     from address,orders
+     where address.user_seq_id=orders.customer_id
+     and orders.order_stat between 2 and 4;
+begin
+  x:=0;
+  for r_ord in c_ord loop
+    x:=x+1;
+    v_oid:=r_ord.order_id;
+    v_aid:=r_ord.address_id;
+    select dbms_random.string ('a', 20) into v_lname from dual;
+    select dbms_random.string ('a', 50) into v_lstat from dual;
+    select dbms_random.string ('a', 10) into v_postman from dual;
+    select trunc(dbms_random.value (10000000000,20000000000))
+     into v_phone from dual;
+    insert into logistics(logi_id,order_id,target,logi_name,
+     now_location,postman,phone)
+     values(seq_logi.nextval,v_oid,v_aid,v_lname,v_lstat,v_postman,v_phone);
+    if mod(x,5000)=0 then
+      commit;
+    end if;
+  end loop;
+end;
+
+create or replace procedure gen_order_items
+as
+  x number;
+  temp number;
+  flag number;
+  v_oid order_items.order_id%type;
+  v_pid order_items.product_id%type;
+  v_num order_items.product_num%type;
+  cursor c_orders is select * from orders
+   ORDER BY dbms_random.value;
+begin
+  for r_orders in c_orders loop
+    x:=0;
+    v_oid:=r_orders.order_id;
+    temp:=0;
+    select trunc(dbms_random.value (1,3))
+     into flag from dual;
+    for x in 1..flag loop
+     select trunc(dbms_random.value (1,15000001))
+     into v_pid from dual;
+      if temp=v_pid then
+        exit;
+      else
+        temp:=v_pid;
+      end if;
+      select trunc(dbms_random.value (1,100))
+        into v_num from dual;
+      insert into order_items(order_id,product_id,product_num)
+       values(v_oid,v_pid,v_num);
+     end loop;
+     commit;
+  end loop;
+end;
